@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aggregated Results</title>
+</head>
+<body>
+    <h1>Aggregated Movie Preferences</h1>
+    <h2>Top 3 Movies:</h2>
+    <ol>
+        {% for winner in winners %}
+            <li>{{ winner }}</li>
+        {% endfor %}
+    </ol>
+    <p><a href="{{ url_for('index') }}">Back to Home</a></p>
+</body>
+</html>

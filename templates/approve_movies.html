@@ -1,0 +1,24 @@
+
+{% block content %}
+    <h1>Approve Movies</h1>
+    <table>
+        <thead>
+            <tr>
+                <th>Movie Title</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for movie in unapproved_movies %}
+                <tr>
+                    <td>{{ movie.title }}</td>
+                    <td>
+                        <form action="{{ url_for('approve_movie', movie_id=movie.id) }}" method="POST">
+                            <input type="submit" value="Approve">
+                        </form>
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endblock %}
