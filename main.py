@@ -313,3 +313,7 @@ def results():
         print(election_result)
 
     return render_template('results.html', winners=winners)
+
+if __name__ == "__main__":
+    logging.info("running")
+    app.run()
