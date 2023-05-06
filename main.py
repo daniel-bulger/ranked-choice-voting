@@ -9,6 +9,8 @@ import pyrankvote
 from pyrankvote import Candidate, Ballot
 import condorcet
 from flask_discord import DiscordOAuth2Session
+from flask_admin import Admin
+from flask_admin.contrib.sqla import ModelView
 from google.cloud import secretmanager
 
 
@@ -115,6 +117,25 @@ def callback():
 def logout():
     discord.revoke()
     return redirect(url_for('index'))
+
+class UserModelView(ModelView):
+    column_exclude_list = ['password']
+    form_excluded_columns = ['password']
+
+    def is_accessible(self):
+        current_user = get_current_user()
+        return current_user.is_admin
+
+    def inaccessible_callback(self, name, **kwargs):
+        flash('You do not have permission to access this page.', 'danger')
+        return redirect(url_for('index'))
+
+admin = Admin(app, name='Ranked Choice Voting', template_mode='bootstrap3')
+admin.add_view(UserModelView(User, db.session))
+admin.add_view(UserModelView(Movie, db.session))
+class PreferenceModelView(UserModelView):
+    column_list = ['id', 'user_id', 'movie_id', 'order']
+admin.add_view(PreferenceModelView(Preference, db.session))
 
 @app.route('/approve_movies')
 @requires_authorization
