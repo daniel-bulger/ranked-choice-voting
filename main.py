@@ -88,6 +88,16 @@ def requires_authorization(view):
 def get_current_user():
     return User.query.filter_by(username=discord.fetch_user().username).first()
 
+@app.before_request
+def redirect_to_primary_domain():
+    primary_domain = os.environ.get('PRIMARY_DOMAIN')
+    if not primary_domain:
+        return
+    current_domain = request.host
+
+    if current_domain != primary_domain:
+        url = request.url.replace(current_domain, primary_domain)
+        return redirect(url, code=301)
 
 @app.route('/login')
 def login():

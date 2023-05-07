@@ -9,3 +9,4 @@ env_variables:
   CLOUD_SQL_DATABASE_NAME: postgres
   CLOUD_SQL_CONNECTION_NAME: ranked-choice-voting-383118:us-central1:ranked-choice
   DISCORD_REDIRECT_URI: "https://ranked-choice-voting-383118.uc.r.appspot.com/callback"
+  PRIMARY_DOMAIN: "rankedchoice.xyz"
