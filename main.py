@@ -16,6 +16,9 @@ from flask_discord import DiscordOAuth2Session
 from flask_admin import Admin
 from flask_admin.contrib.sqla import ModelView
 from google.cloud import secretmanager
+from flask_wtf import FlaskForm
+from wtforms import SelectField, SubmitField
+from wtforms.validators import DataRequired
 
 
 def access_secret_version(secret_id, version_id="latest"):
@@ -413,6 +416,32 @@ def create_movie_event():
     # Make the API request
     response = requests.post(url, headers=headers, json=payload)
     print(response.json())
+
+
+@app.route('/clear_votes', methods=['POST','GET'])
+@requires_authorization
+def clear_votes():
+    if not get_current_user().is_admin:
+        abort(403)  # Forbidden
+
+    class ClearVotesForm(FlaskForm):
+        movie = SelectField('Movie', choices=[(m.id, m.title) for m in Movie.query.all()], validators=[DataRequired()])
+        submit = SubmitField('Clear Votes')
+    form = ClearVotesForm()
+
+    # Handle the POST request with form data
+    if form.validate_on_submit():
+        movie_id = form.movie.data
+        movie = Movie.query.get(movie_id)
+
+        # Delete all votes related to this movie
+        Preference.query.filter_by(movie_id=movie_id).delete()
+        db.session.commit()
+        flash(f"All votes for {movie.title} have been removed.", "success")
+        return redirect(url_for('index'))
+
+    # Handle the GET request to display the form
+    return render_template('clear_votes.html', form=form)
 
 @app.route('/create-event', methods=['GET', 'POST'])
 @requires_authorization
