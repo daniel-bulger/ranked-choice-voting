@@ -38,6 +38,8 @@ if not os.environ.get('DISCORD_CLIENT_ID'):
 app.config["DISCORD_CLIENT_ID"] = os.environ.get('DISCORD_CLIENT_ID')
 if not os.environ.get('DISCORD_CLIENT_SECRET'):
     os.environ['DISCORD_CLIENT_SECRET'] = access_secret_version('ranked-choice-discord-client-secret')
+if not os.environ.get('DISCORD_BOT_TOKEN'):
+    os.environ['DISCORD_BOT_TOKEN'] = access_secret_version('ranked-choice-discord-bot-token')
 app.config["DISCORD_CLIENT_SECRET"] = os.environ.get('DISCORD_CLIENT_SECRET')
 app.config["DISCORD_REDIRECT_URI"] = os.environ.get('DISCORD_REDIRECT_URI')
 app.config["DISCORD_SCOPE"] = ["identify","guilds"]
