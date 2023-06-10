@@ -1,9 +1,13 @@
 import functools
+from datetime import datetime, time, timedelta
+import logging
+import pytz
 import os
 from flask import Flask, abort, current_app, render_template, request, redirect, url_for, flash
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_login import login_user, logout_user, current_user
+import requests
 from werkzeug.security import generate_password_hash, check_password_hash
 import pyrankvote
 from pyrankvote import Candidate, Ballot
@@ -61,6 +65,7 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     is_admin = db.Column(db.Boolean, default=False, nullable=False)
+    vote_counts = db.Column(db.Boolean, nullable=False, default=True)
 
 
 class Movie(db.Model):
@@ -239,22 +244,21 @@ def update_preferences():
     return redirect('/')
 
 
-def get_instant_runoff_winner():
+def get_instant_runoff_winner(preferences):
     # Retrieve all the movies
     movies = Movie.query.order_by(Movie.id).filter_by(is_approved=True).all()
-
+    # The library breaks if there's only one candidate -- return it early instead.
+    if len(movies) == 1:
+        return [Candidate(movies[0].title)]
     # Create a Candidate object for each movie
     candidates = [Candidate(movie.title) for movie in movies]
     id_to_candidate_index = {}
     for i,movie in enumerate(movies):
         id_to_candidate_index[movie.id] = i
 
-    # Retrieve all the user preferences
-    all_preferences = Preference.query.order_by(Preference.order).all()
-
     # Group preferences by user_id
     user_preferences = {}
-    for preference in all_preferences:
+    for preference in preferences:
         if preference.user_id not in user_preferences:
             user_preferences[preference.user_id] = []
         user_preferences[preference.user_id].append(candidates[id_to_candidate_index[preference.movie_id]])
@@ -269,7 +273,7 @@ def get_instant_runoff_winner():
     print(election_result)
     return winners
 
-def find_condorcet_winners():
+def find_condorcet_winners(preferences):
     # Retrieve all the movies
     movies = Movie.query.order_by(Movie.id).filter_by(is_approved=True).all()
 
@@ -279,12 +283,9 @@ def find_condorcet_winners():
     for i,movie in enumerate(movies):
         id_to_candidate_index[movie.id] = i
 
-    # Retrieve all the user preferences
-    all_preferences = Preference.query.order_by(Preference.order).all()
-
     # Group preferences by user_id
     user_preferences = {}
-    for preference in all_preferences:
+    for preference in preferences:
         if preference.user_id not in user_preferences:
             user_preferences[preference.user_id] = []
         user_preferences[preference.user_id].append(candidates[id_to_candidate_index[preference.movie_id]])
@@ -308,21 +309,120 @@ def find_condorcet_winners():
     return winners
 
 
+def get_interested_voters():
+    try:
+        # Define the URL for the API call
+        get_events_url = f"https://discord.com/api/guilds/226530292393836544/scheduled-events"
+        # Define the headers for the API call
+        headers = {
+            'Authorization': f'Bot {os.getenv("DISCORD_BOT_TOKEN")}',
+        }
+        # Make the API call
+        events_response = requests.get(get_events_url, headers=headers)
+        next_movie_night = None
+        for event in events_response.json():
+            if "movie" in event['name'] or "Movie" in event['name']:
+                if not(next_movie_night) or event['start_time'] < next_movie_night['start_time']:
+                    next_movie_night = event
+        if next_movie_night is None:
+            return None
+        get_users_url = f"https://discord.com/api/guilds/226530292393836544/scheduled-events/{next_movie_night['id']}/users"
+        get_users_response = requests.get(get_users_url,headers=headers).json()
+        return [user['user']['username'] for user in get_users_response]
+    except Exception as e:
+        print(e)
+        return None
 
 @app.route('/results')
 @requires_authorization
 def results():
-    condorcet_winners = find_condorcet_winners()
+    # Update whose vote should count.  This involves Discord API calls.
+    interested_usernames = get_interested_voters()
+    print(interested_usernames)
+    if interested_usernames is None:
+        print("No upcoming movie night :(.  Fall back to counting all votes.")
+        for user in User.query.all():
+            user.vote_counts = True
+    else:
+        # Mark all users who are interested as having their vote count for the next movie night.
+        all_users = User.query.all()            
+        for user in all_users:
+            if user.username in interested_usernames:
+                user.vote_counts = True
+                print("user is interested")
+            else:
+                user.vote_counts = False
+    db.session.commit()
+
+    # Only count the preferences for voters who are attending the next movie night.
+    preferences = Preference.query.join(User).filter(User.vote_counts==True).all()
+    if not preferences:
+        return render_template('no_results.html')
+        winners = [preferences[0]]
+    condorcet_winners = find_condorcet_winners(preferences)
     if condorcet_winners:
         winners = condorcet_winners
     else:
         # Run the Instant Runoff Voting (IRV) election
-        election_result = get_instant_runoff_winner()
+        election_result = get_instant_runoff_winner(preferences)
         # Get the winner
         winners = [winner.name for winner in election_result]
         print(election_result)
 
     return render_template('results.html', winners=winners)
+
+def create_movie_event():
+    # Define the event details
+    name = 'Movie Night!'  # The name of the event
+    description = 'Join us for a movie night!  Vote for which movie to watch at https://rankedchoice.xyz/ .  If you get a server error, try logging out at https://rankedchoice.xyz/logout .'  # The description of the event
+    privacy_level = 2 # GUILD_ONLY
+    entity_type = 2 # VOICE
+    channel_id = 718591738989510706  # The ID of the channel where the event will take place
+
+    # Get the next Saturday
+    now = datetime.now()
+    next_saturday = now + timedelta((5 - now.weekday() + 7) % 7)
+
+    # Set the event to start at 9 PM Eastern
+    eastern = pytz.timezone('US/Eastern')
+    scheduled_start_time = eastern.localize(datetime.combine(next_saturday, time(21, 0)))
+    scheduled_end_time = scheduled_start_time + timedelta(hours=2)  # End in 2 hours
+
+    # Define the API endpoint
+    url = f'https://discord.com/api/v9/guilds/226530292393836544/scheduled-events'
+
+    # Define the headers
+    headers = {
+        'Authorization': f'Bot {os.getenv("DISCORD_BOT_TOKEN")}',
+        'Content-Type': 'application/json',
+    }
+
+    # Define the payload
+    payload = {
+        'channel_id': channel_id,
+        'name': name,
+        'description': description,
+        'privacy_level': privacy_level,
+        'entity_type': entity_type,
+        'scheduled_start_time': scheduled_start_time.isoformat(),
+        'scheduled_end_time': scheduled_end_time.isoformat(),
+    }
+
+    # Make the API request
+    response = requests.post(url, headers=headers, json=payload)
+    print(response.json())
+
+@app.route('/create-event', methods=['GET', 'POST'])
+@requires_authorization
+def create_event():
+    if not get_current_user().is_admin:
+        abort(403)  # Forbidden
+
+    if request.method == 'POST':
+        create_movie_event()
+        return 'Event created successfully'
+    else:
+        return render_template('create_event.html')
 
 if __name__ == "__main__":
     logging.info("running")

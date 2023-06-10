@@ -1,0 +1,8 @@
+<!doctype html>
+<title>Create Movie Event</title>
+<h1>Create Movie Event</h1>
+<form action="{{ url_for('create_event') }}" method="POST">
+    <label for="movie_title">Movie Title (not actually used):</label><br>
+    <input type="text" id="movie_title" name="movie_title"><br>
+    <input type="submit" value="Create Event">
+</form>
