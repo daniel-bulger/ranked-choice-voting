@@ -68,6 +68,7 @@ migrate = Migrate(app, db)
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    discord_id = db.Column(db.Integer, unique=True, nullable=False)
     username = db.Column(db.String(80), unique=True, nullable=False)
     is_admin = db.Column(db.Boolean, default=False, nullable=False)
     vote_counts = db.Column(db.Boolean, nullable=False, default=True)
@@ -96,7 +97,7 @@ def requires_authorization(view):
     return wrapper
 
 def get_current_user():
-    return User.query.filter_by(username=discord.fetch_user().username).first()
+    return User.query.filter_by(discord_id=discord.fetch_user().id).first()
 
 @app.before_request
 def redirect_to_primary_domain():
@@ -122,10 +123,12 @@ def callback():
     guilds = discord.fetch_guilds()
     print(["%s %s"%(guild.id, guild.name) for guild in guilds])
     if any(guild.id == 226530292393836544 for guild in guilds):
-        existing_user = User.query.filter_by(username=user.username).first()
+        existing_user = User.query.filter_by(discord_id=user.id).first()
+        if not existing_user:
+            existing_user = User.query.filter_by(username=user.username).first()
         if not existing_user:
             print(user.id)
-            new_user = User(username=user.username, is_admin=user.username=='dpbulger')
+            new_user = User(discord_id=user.id, username=user.username, is_admin=user.id==267396214939451396)
             db.session.add(new_user)
             db.session.commit()
         return redirect(url_for('index'))
@@ -333,7 +336,7 @@ def get_interested_voters():
             return None
         get_users_url = f"https://discord.com/api/guilds/226530292393836544/scheduled-events/{next_movie_night['id']}/users"
         get_users_response = requests.get(get_users_url,headers=headers).json()
-        return [user['user']['username'] for user in get_users_response]
+        return [user['user']['id'] for user in get_users_response]
     except Exception as e:
         print(e)
         return None
@@ -342,9 +345,9 @@ def get_interested_voters():
 @requires_authorization
 def results():
     # Update whose vote should count.  This involves Discord API calls.
-    interested_usernames = get_interested_voters()
-    print(interested_usernames)
-    if interested_usernames is None:
+    interested_ids = [int(id) for id in get_interested_voters()]
+    print(interested_ids)
+    if interested_ids is None:
         print("No upcoming movie night :(.  Fall back to counting all votes.")
         for user in User.query.all():
             user.vote_counts = True
@@ -352,7 +355,7 @@ def results():
         # Mark all users who are interested as having their vote count for the next movie night.
         all_users = User.query.all()            
         for user in all_users:
-            if user.username in interested_usernames:
+            if user.discord_id in interested_ids:
                 user.vote_counts = True
                 print("user is interested")
             else:
