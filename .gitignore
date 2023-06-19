@@ -163,3 +163,5 @@ cython_debug/
 
 localhost.pem
 localhost-key.pem
+localhost.cert
+localhost.key
