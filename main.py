@@ -220,10 +220,19 @@ def index():
     print(sorted_movies)
 
 
+    # Sort the unsorted movies based on what would be winning if everyone's votes counted.
+    preferences = Preference.query.all()
+    ranked_movie_ids = get_instant_runoff_winner_ids(preferences)
     # Add any movies that are not in the user's preferences to the end of the list
-    unsorted_movies = [movie for movie in all_movies if movie.id not in sorted_movie_ids]
+    unsorted_movies = [movie for movie in all_movies if movie.id not in sorted_movie_ids and movie.id not in ranked_movie_ids]
+    ranked_movies = []
+    for movie_id in ranked_movie_ids:
+        if movie_id in sorted_movie_ids: continue
+        for movie in all_movies:
+            if movie.id == movie_id:
+                ranked_movies.append(movie)
 
-    return render_template('index.html', movies=sorted_movies, unordered_movies = unsorted_movies,username=get_current_user().username)
+    return render_template('index.html', movies=sorted_movies, unordered_movies = ranked_movies + unsorted_movies,username=get_current_user().username)
 
 @app.route('/update_preferences', methods=['POST'])
 @requires_authorization
@@ -254,15 +263,7 @@ def update_preferences():
     return redirect('/')
 
 
-def get_instant_runoff_winner(preferences):
-    # Retrieve all the movies
-    movies = Movie.query.order_by(Movie.id).filter_by(is_approved=True).all()
-    # Create a Candidate object for each movie
-    candidates = [movie.id for movie in movies]
-    id_to_name = {}
-    for movie in movies:
-        id_to_name[movie.id] = movie.title
-
+def get_instant_runoff_winner_ids(preferences):
     ranking_per_voter = []
     # Group preferences by user_id
     preferences_by_user = {}
@@ -275,7 +276,17 @@ def get_instant_runoff_winner(preferences):
         user_preference_list.append([candidate for order,candidate in sorted(user_preferences.items())])
 
     # Run the Instant Runoff Voting (IRV) election
-    election_result = run_instant_runoff_election(candidates,user_preference_list)
+    return run_instant_runoff_election(user_preference_list)
+
+def get_instant_runoff_winners(preferences):
+    election_result = get_instant_runoff_winner_ids(preferences)
+    # Retrieve all the movies
+    movies = Movie.query.order_by(Movie.id).filter_by(is_approved=True).all()
+    # Create a Candidate object for each movie
+    id_to_name = {}
+    for movie in movies:
+        id_to_name[movie.id] = movie.title
+
     ranked_names = [id_to_name[x] for x in election_result]
     return ranked_names
 
@@ -371,7 +382,7 @@ def results():
         winners = condorcet_winners
     else:
         # Run the custom Instant Runoff Voting (IRV) election
-        winners = get_instant_runoff_winner(preferences)
+        winners = get_instant_runoff_winners(preferences)
         print(winners)
         winners = winners[:5]
 
