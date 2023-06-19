@@ -20,6 +20,8 @@ from flask_wtf import FlaskForm
 from wtforms import SelectField, SubmitField
 from wtforms.validators import DataRequired
 
+from better_instant_runoff import run_instant_runoff_election
+
 
 def access_secret_version(secret_id, version_id="latest"):
     project_id = "722181616115"
@@ -255,31 +257,27 @@ def update_preferences():
 def get_instant_runoff_winner(preferences):
     # Retrieve all the movies
     movies = Movie.query.order_by(Movie.id).filter_by(is_approved=True).all()
-    # The library breaks if there's only one candidate -- return it early instead.
-    if len(movies) == 1:
-        return [Candidate(movies[0].title)]
     # Create a Candidate object for each movie
-    candidates = [Candidate(movie.title) for movie in movies]
-    id_to_candidate_index = {}
-    for i,movie in enumerate(movies):
-        id_to_candidate_index[movie.id] = i
+    candidates = [movie.id for movie in movies]
+    id_to_name = {}
+    for movie in movies:
+        id_to_name[movie.id] = movie.title
 
+    ranking_per_voter = []
     # Group preferences by user_id
-    user_preferences = {}
+    preferences_by_user = {}
     for preference in preferences:
-        if preference.user_id not in user_preferences:
-            user_preferences[preference.user_id] = []
-        user_preferences[preference.user_id].append(candidates[id_to_candidate_index[preference.movie_id]])
-
-    # Create a ballot for each user using their preferences
-    ballots = [Ballot(ranked_candidates=prefs) for prefs in user_preferences.values()]
+        if preference.user_id not in preferences_by_user:
+            preferences_by_user[preference.user_id] = {}
+        preferences_by_user[preference.user_id][preference.order]=preference.movie_id
+    user_preference_list = []
+    for user_preferences in preferences_by_user.values():
+        user_preference_list.append([candidate for order,candidate in sorted(user_preferences.items())])
 
     # Run the Instant Runoff Voting (IRV) election
-    election_result = pyrankvote.instant_runoff_voting(candidates, ballots)
-    # Get the winner
-    winners = election_result.get_winners()[:3]
-    print(election_result)
-    return winners
+    election_result = run_instant_runoff_election(candidates,user_preference_list)
+    ranked_names = [id_to_name[x] for x in election_result]
+    return ranked_names
 
 def find_condorcet_winners(preferences):
     # Retrieve all the movies
@@ -295,8 +293,8 @@ def find_condorcet_winners(preferences):
     user_preferences = {}
     for preference in preferences:
         if preference.user_id not in user_preferences:
-            user_preferences[preference.user_id] = []
-        user_preferences[preference.user_id].append(candidates[id_to_candidate_index[preference.movie_id]])
+            user_preferences[preference.user_id] = {}
+        user_preferences[preference.user_id][preference.order] = candidates[id_to_candidate_index[preference.movie_id]]
 
     # Transform the data to work with 
 
@@ -307,8 +305,8 @@ def find_condorcet_winners(preferences):
         next_prefs = {}
         for movie in movies:
             next_prefs[movie.title] = total_movies
-        for i, pref in enumerate(prefs):
-            next_prefs[pref] = i
+        for order, movie_title in prefs.items():
+            next_prefs[movie_title] = order
         votes.append(next_prefs)
 
     evaluator = condorcet.CondorcetEvaluator(candidates=candidates, votes=votes)
@@ -333,6 +331,7 @@ def get_interested_voters():
                 if not(next_movie_night) or event['start_time'] < next_movie_night['start_time']:
                     next_movie_night = event
         if next_movie_night is None:
+            print("No next movie night :(")
             return None
         get_users_url = f"https://discord.com/api/guilds/226530292393836544/scheduled-events/{next_movie_night['id']}/users"
         get_users_response = requests.get(get_users_url,headers=headers).json()
@@ -371,11 +370,10 @@ def results():
     if condorcet_winners:
         winners = condorcet_winners
     else:
-        # Run the Instant Runoff Voting (IRV) election
-        election_result = get_instant_runoff_winner(preferences)
-        # Get the winner
-        winners = [winner.name for winner in election_result]
-        print(election_result)
+        # Run the custom Instant Runoff Voting (IRV) election
+        winners = get_instant_runoff_winner(preferences)
+        print(winners)
+        winners = winners[:5]
 
     return render_template('results.html', winners=winners)
 
