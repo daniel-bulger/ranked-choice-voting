@@ -377,15 +377,14 @@ def results():
     preferences = Preference.query.join(User).filter(User.vote_counts==True).all()
     if not preferences:
         return render_template('no_results.html')
-        winners = [preferences[0]]
-    condorcet_winners = find_condorcet_winners(preferences)
-    if condorcet_winners:
-        winners = condorcet_winners
-    else:
-        # Run the custom Instant Runoff Voting (IRV) election
-        winners = get_instant_runoff_winners(preferences)
-        print(winners)
-        winners = winners[:5]
+    # Something seems wrong with condorcet so commenting this out for now.
+    # condorcet_winners = find_condorcet_winners(preferences)
+    # if condorcet_winners:
+    #     winners = condorcet_winners
+    # Run the custom Instant Runoff Voting (IRV) election
+    winners = get_instant_runoff_winners(preferences)
+    print(winners)
+    winners = winners[:5]
 
     return render_template('results.html', winners=winners)
 
