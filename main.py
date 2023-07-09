@@ -294,7 +294,7 @@ def get_instant_runoff_winners(preferences,current_user_id = 0):
         id_to_name[movie.id] = movie.title
 
     print(election_result)
-    ranked_names = ([id_to_name[x] for x in election_result[1]],election_result[0],election_result[2])
+    ranked_names = ([id_to_name[x] for x in election_result[1]],[{id_to_name[k]:v for k,v in d.items()} for d in election_result[0]],[[id_to_name[x] for x in y] for y in election_result[2]])
     return ranked_names
 
 def find_condorcet_winners(preferences):

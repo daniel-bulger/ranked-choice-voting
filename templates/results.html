@@ -29,8 +29,8 @@
             let userVote = userVotes[number - 1];
             let html = `<h2>Round ${number}</h2><ul>`;
             for (let candidate in votes) {
-                html += `<li>Candidate ${candidate}: ${votes[candidate]} votes`;
-                if (userVote.includes(parseInt(candidate))) {
+                html += `<li>${candidate}: ${votes[candidate]} votes`;
+                if (userVote.includes(candidate)) {
                     html += ' 👈 Your vote';
                 }
                 html += '</li>';
