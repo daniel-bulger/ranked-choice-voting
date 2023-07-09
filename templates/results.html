@@ -27,14 +27,26 @@
         function showRound(number) {
             let votes = rounds[number - 1];
             let userVote = userVotes[number - 1];
+
+            // Convert the votes object to an array of [candidate, votes] pairs, then sort it by votes and names
+            let sortedVotes = Object.entries(votes).sort((a, b) => {
+                let voteDiff = b[1] - a[1];
+                if (voteDiff !== 0) {
+                    return voteDiff;
+                } else {
+                    // If votes are equal, sort alphabetically by candidate name
+                    return a[0].localeCompare(b[0]);
+                }
+            });
             let html = `<h2>Round ${number}</h2><ul>`;
-            for (let candidate in votes) {
-                html += `<li>${candidate}: ${votes[candidate]} votes`;
+            for (let [candidate, votes] of sortedVotes) {
+                html += `<li>${candidate}: ${votes} votes`;
                 if (userVote.includes(candidate)) {
                     html += ' 👈 Your vote';
                 }
                 html += '</li>';
-            }            html += '</ul>';
+            }
+            html += '</ul>';
             document.getElementById('rounds').innerHTML = html;
 
             // Enable or disable buttons based on the current round
