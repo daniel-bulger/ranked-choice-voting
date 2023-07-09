@@ -350,7 +350,7 @@ def get_interested_voters():
                     next_movie_night = event
         if next_movie_night is None:
             print("No next movie night :(")
-            return None
+            return []
         get_users_url = f"https://discord.com/api/guilds/226530292393836544/scheduled-events/{next_movie_night['id']}/users"
         get_users_response = requests.get(get_users_url,headers=headers).json()
         return [user['user']['id'] for user in get_users_response]
