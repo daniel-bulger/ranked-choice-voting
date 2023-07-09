@@ -16,6 +16,11 @@
     </ol>
     <p><a href="{{ url_for('index') }}">Back to Home</a></p>
 
+    {% if i_am_interested %}
+    <p>You marked yourself interested and your vote is being counted.</p>
+    {% else %}
+    <p>You have not marked yourself as interested in the next movie night and your vote is not being counted.</p>
+    {% endif %}
     <button id="prevButton" disabled>Previous</button>
     <button id="nextButton" disabled>Next</button>
     <div id="rounds"></div>

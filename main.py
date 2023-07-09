@@ -389,10 +389,13 @@ def results():
     #     winners = condorcet_winners
     # Run the custom Instant Runoff Voting (IRV) election
     winners,votes,my_votes = get_instant_runoff_winners(preferences,get_current_user().id)
+    if not get_current_user().vote_counts:
+        for i in range(len(my_votes)):
+            my_votes[i] = []
     print(winners)
     winners = winners[:5]
 
-    return render_template('results.html', winners=winners, votes=votes, my_votes=my_votes)
+    return render_template('results.html', winners=winners, votes=votes, my_votes=my_votes,i_am_interested=get_current_user().vote_counts)
 
 def create_movie_event():
     # Define the event details
