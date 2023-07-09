@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.4/jquery.min.js"></script>
     <title>Aggregated Results</title>
 </head>
 <body>
@@ -14,5 +15,49 @@
         {% endfor %}
     </ol>
     <p><a href="{{ url_for('index') }}">Back to Home</a></p>
+
+    <button id="prevButton" disabled>Previous</button>
+    <button id="nextButton" disabled>Next</button>
+    <div id="rounds"></div>
+    <script>
+        let rounds = JSON.parse('{{ votes|tojson|safe }}');
+        let userVotes = JSON.parse('{{ my_votes|tojson|safe }}');
+        let currentRound = 1;
+
+        function showRound(number) {
+            let votes = rounds[number - 1];
+            let userVote = userVotes[number - 1];
+            let html = `<h2>Round ${number}</h2><ul>`;
+            for (let candidate in votes) {
+                html += `<li>Candidate ${candidate}: ${votes[candidate]} votes`;
+                if (userVote.includes(parseInt(candidate))) {
+                    html += ' 👈 Your vote';
+                }
+                html += '</li>';
+            }            html += '</ul>';
+            document.getElementById('rounds').innerHTML = html;
+
+            // Enable or disable buttons based on the current round
+            document.getElementById('prevButton').disabled = (number === 1);
+            document.getElementById('nextButton').disabled = (number === rounds.length);
+        }
+
+        document.getElementById('prevButton').addEventListener('click', function() {
+            if (currentRound > 1) {
+                currentRound--;
+                showRound(currentRound);
+            }
+        });
+
+        document.getElementById('nextButton').addEventListener('click', function() {
+            if (currentRound < rounds.length) {
+                currentRound++;
+                showRound(currentRound);
+            }
+        });
+
+        // Show the first round initially
+        showRound(currentRound);
+    </script>
 </body>
 </html>
