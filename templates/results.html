@@ -21,8 +21,15 @@
     {% else %}
     <p>You have not marked yourself as interested in the next movie night and your vote is not being counted.</p>
     {% endif %}
+    <button id="firstButton" disabled>First</button>
+    <button id="prev10Button" disabled>-10</button>
+    <button id="prev5Button" disabled>-5</button>
     <button id="prevButton" disabled>Previous</button>
     <button id="nextButton" disabled>Next</button>
+    <button id="next5Button" disabled>+5</button>
+    <button id="next10Button" disabled>+10</button>
+    <button id="lastButton" disabled>Last</button>
+
     <div id="rounds"></div>
     <script>
         let rounds = JSON.parse('{{ votes|tojson|safe }}');
@@ -55,8 +62,14 @@
             document.getElementById('rounds').innerHTML = html;
 
             // Enable or disable buttons based on the current round
+            document.getElementById('firstButton').disabled = (number === 1);
+            document.getElementById('prev10Button').disabled = (number <= 10);
+            document.getElementById('prev5Button').disabled = (number <= 5);
             document.getElementById('prevButton').disabled = (number === 1);
             document.getElementById('nextButton').disabled = (number === rounds.length);
+            document.getElementById('next5Button').disabled = (number + 5 > rounds.length);
+            document.getElementById('next10Button').disabled = (number + 10 > rounds.length);
+            document.getElementById('lastButton').disabled = (number === rounds.length);
         }
 
         document.getElementById('prevButton').addEventListener('click', function() {
@@ -65,10 +78,47 @@
                 showRound(currentRound);
             }
         });
+        document.getElementById('prev5Button').addEventListener('click', function() {
+            if (currentRound > 5) {
+                currentRound -= 5;
+                showRound(currentRound);
+            }
+        });
+        document.getElementById('prev10Button').addEventListener('click', function() {
+            if (currentRound > 10) {
+                currentRound -= 10;
+                showRound(currentRound);
+            }
+        });
 
         document.getElementById('nextButton').addEventListener('click', function() {
             if (currentRound < rounds.length) {
                 currentRound++;
+                showRound(currentRound);
+            }
+        });
+        document.getElementById('next5Button').addEventListener('click', function() {
+            if (currentRound + 5 <= rounds.length) {
+                currentRound += 5;
+                showRound(currentRound);
+            }
+        });
+        document.getElementById('next10Button').addEventListener('click', function() {
+            if (currentRound + 10 <= rounds.length) {
+                currentRound += 10;
+                showRound(currentRound);
+            }
+        });
+        
+        document.getElementById('firstButton').addEventListener('click', function() {
+            if (currentRound > 1) {
+                currentRound = 1;
+                showRound(currentRound);
+            }
+        });
+        document.getElementById('lastButton').addEventListener('click', function() {
+            if (currentRound < rounds.length) {
+                currentRound = rounds.length;
                 showRound(currentRound);
             }
         });
