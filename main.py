@@ -3,6 +3,7 @@ from datetime import datetime, time, timedelta
 import logging
 import pytz
 import os
+from dotenv import load_dotenv
 
 from flask import Flask, abort, current_app, render_template, request, redirect, url_for, flash
 from flask_sqlalchemy import SQLAlchemy
@@ -23,6 +24,7 @@ from wtforms.validators import DataRequired
 
 from better_instant_runoff import run_instant_runoff_election
 
+load_dotenv()  # Load environment variables from .env file
 
 def access_secret_version(secret_id, version_id="latest"):
     project_id = "722181616115"
@@ -265,6 +267,10 @@ def update_preferences():
 
 
 def get_instant_runoff_winner_ids(preferences, current_user_id = 0):
+    # If there are no preferences, return an empty result immediately
+    if not preferences:
+        return ([], [], [])
+
     ranking_per_voter = []
     # Group preferences by user_id
     preferences_by_user = {}
@@ -477,5 +483,7 @@ def create_event():
         return render_template('create_event.html')
 
 if __name__ == "__main__":
+    print("running")
     logging.info("running")
-    app.run()
+    context = ('localhost.cert', 'localhost.key')
+    app.run(ssl_context=context)
