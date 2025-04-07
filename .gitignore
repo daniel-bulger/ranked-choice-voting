@@ -165,3 +165,4 @@ localhost.pem
 localhost-key.pem
 localhost.cert
 localhost.key
+movies.db

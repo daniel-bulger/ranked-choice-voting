@@ -1,54 +1,31 @@
-<!DOCTYPE html>
+{% extends 'base.html' %}
+{% block title %}Vote{% endblock %}
 
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Movie Preferences</title>
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.14.0/Sortable.min.js"></script>
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
-</head>
-<body>
-    <h1>Welcome, {{ username }}</h1>
-    <h2>Add Movie</h2>
-    <form action="{{ url_for('add_movie') }}" method="POST">
-        <input type="text" name="title" placeholder="Movie Title" required>
-        <input type="submit" value="Request for movie to be added.">
-    </form>
+{% block content %}
+    {# Removed Add Movie Form #}
 
-    <p><a href="{{ url_for('results') }}">View Aggregated Results</a></p>
+    <h2>Your Movie Preferences</h2>
+    <ol id="movie_list">
+        {% for movie in movies %}
+            <li>
+                {{ movie.title }}
+                <input type="hidden" name="movie[]" value="{{ movie.id }}">
+                <button type="button" class="btn btn-primary btn-sm remove-button">Remove</button>
+            </li>
+        {% endfor %}
+    </ol>
+    <h2>Unordered Movies</h2>
+    <ul id="unordered_movie_list">
+        {% for unordered_movie in unordered_movies %}
+            <li>
+                {{ unordered_movie.title }}
+                <input type="hidden" name="unordered_movie[]" value="{{ unordered_movie.id }}">
+                <button type="button" class="btn btn-primary btn-sm add-button">Add</button>
+            </li>
+        {% endfor %}
+    </ul>
 
-    <form action="{{ url_for('update_preferences') }}" method="POST" id="preferences_form">
-        <h2>Your Movie Preferences</h2>
-        <input type="submit" value="Save Preferences">
-        <ol id="movie_list">
-            {% for movie in movies %}
-                <li>
-                    {{ movie.title }}
-                    <input type="hidden" name="movie[]" value="{{ movie.id }}">
-                    <button type="button" class="btn btn-primary btn-sm remove-button">Remove</button>
-                </li>
-            {% endfor %}
-        </ol>
-        <h2>Unordered Movies</h2>
-        <input type="submit" value="Save Preferences">
-        <ul id="unordered_movie_list">
-            {% for unordered_movie in unordered_movies %}
-                <li>
-                    {{ unordered_movie.title }}
-                    <input type="hidden" name="unordered_movie[]" value="{{ unordered_movie.id }}">
-                    <button type="button" class="btn btn-primary btn-sm add-button">Add</button>
-                </li>
-            {% endfor %}
-        </ul>
-        <input type="submit" value="Save Preferences">
-    </form>
-
-    <p><a href="{{ url_for('logout') }}">Logout</a></p>
-    <h2>Admin stuff</h2>
-    <p><a href="{{ url_for('approve_movies') }}">Approve submitted movies</a></p>
-    <p><a href="{{ url_for('clear_votes') }}">Mark a movie as watched</a></p>
+    <div id="autosave-status" style="text-align: center; margin-top: 10px; height: 1em;"></div>
 
     <script>
         // document.addEventListener('DOMContentLoaded', function() {
@@ -64,54 +41,90 @@
         //     });
         // });
         $(document).ready(function() {
-        // Initialize SortableJS for the ordered movie list
-        new Sortable(document.getElementById('movie_list'), {
-            animation: 150,
-            ghostClass: 'sortable-ghost'
-        });
+            const autosaveStatus = $('#autosave-status');
 
-        // Add click event listener for 'Add' buttons
-        $('#unordered_movie_list .add-button').on('click', function() {
-            const listItem = $(this).closest('li');
-            listItem.find('input[name="unordered_movie[]"]').attr('name', 'movie[]');
-            $(this).text('Remove');
-            $(this).toggleClass('add-button remove-button');
-            listItem.appendTo('#movie_list');
-            updateButtonHandlers();
-        });
+            // --- Autosave Function ---
+            function triggerAutosave() {
+                autosaveStatus.text('Saving...').css('color', 'orange');
+                const orderedMovieIds = [];
+                $('#movie_list li input[name="movie[]"]').each(function() {
+                    orderedMovieIds.push($(this).val());
+                });
 
-        // Add click event listener for 'Remove' buttons
-        $('#movie_list .remove-button').on('click', function() {
-            const listItem = $(this).closest('li');
-            listItem.find('input[name="movie[]"]').attr('name', 'unordered_movie[]');
-            $(this).text('Add');
-            $(this).toggleClass('add-button remove-button');
-            listItem.appendTo('#unordered_movie_list');
-            updateButtonHandlers();
-        });
+                // Send the new order to the backend
+                $.ajax({
+                    url: "{{ url_for('autosave_preferences') }}",
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ movie_ids: orderedMovieIds }),
+                    success: function(response) {
+                        console.log('Preferences saved:', response);
+                        autosaveStatus.text('Saved!').css('color', 'lightgreen');
+                        setTimeout(() => autosaveStatus.text(''), 2000); // Clear after 2s
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('Error saving preferences:', error);
+                        autosaveStatus.text('Error saving!').css('color', 'red');
+                         // Optionally show a more persistent error
+                    }
+                });
+            }
+            // --- End Autosave Function ---
 
-        // Update button handlers
-        function updateButtonHandlers() {
-            $('#unordered_movie_list .add-button').off('click').on('click', function() {
+            // Initialize SortableJS for the ordered movie list
+            new Sortable(document.getElementById('movie_list'), {
+                animation: 150,
+                ghostClass: 'sortable-ghost',
+                onEnd: function(evt) {
+                    triggerAutosave(); // Call helper function
+                }
+            });
+
+            // Add click event listener for 'Add' buttons
+            $('#unordered_movie_list .add-button').on('click', function() {
                 const listItem = $(this).closest('li');
                 listItem.find('input[name="unordered_movie[]"]').attr('name', 'movie[]');
                 $(this).text('Remove');
                 $(this).toggleClass('add-button remove-button');
                 listItem.appendTo('#movie_list');
                 updateButtonHandlers();
+                triggerAutosave(); // Save after adding
             });
 
-            $('#movie_list .remove-button').off('click').on('click', function() {
+            // Add click event listener for 'Remove' buttons
+            $('#movie_list .remove-button').on('click', function() {
                 const listItem = $(this).closest('li');
                 listItem.find('input[name="movie[]"]').attr('name', 'unordered_movie[]');
                 $(this).text('Add');
                 $(this).toggleClass('add-button remove-button');
                 listItem.appendTo('#unordered_movie_list');
                 updateButtonHandlers();
+                triggerAutosave(); // Save after removing
             });
-        }
-    });
+
+            // Update button handlers
+            function updateButtonHandlers() {
+                $('#unordered_movie_list .add-button').off('click').on('click', function() {
+                    const listItem = $(this).closest('li');
+                    listItem.find('input[name="unordered_movie[]"]').attr('name', 'movie[]');
+                    $(this).text('Remove');
+                    $(this).toggleClass('add-button remove-button');
+                    listItem.appendTo('#movie_list');
+                    updateButtonHandlers();
+                    triggerAutosave(); // Save after adding
+                });
+
+                $('#movie_list .remove-button').off('click').on('click', function() {
+                    const listItem = $(this).closest('li');
+                    listItem.find('input[name="movie[]"]').attr('name', 'unordered_movie[]');
+                    $(this).text('Add');
+                    $(this).toggleClass('add-button remove-button');
+                    listItem.appendTo('#unordered_movie_list');
+                    updateButtonHandlers();
+                    triggerAutosave(); // Save after removing
+                });
+            }
+        });
 
     </script>
-</body>
-</html>
+{% endblock %}

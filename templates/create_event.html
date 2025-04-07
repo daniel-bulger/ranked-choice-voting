@@ -1,8 +1,12 @@
-<!doctype html>
-<title>Create Movie Event</title>
-<h1>Create Movie Event</h1>
-<form action="{{ url_for('create_event') }}" method="POST">
-    <label for="movie_title">Movie Title (not actually used):</label><br>
-    <input type="text" id="movie_title" name="movie_title"><br>
-    <input type="submit" value="Create Event">
-</form>
+{% extends 'base.html' %}
+
+{% block title %}Create Movie Event{% endblock %}
+
+{% block content %}
+    <h1>Create Movie Event</h1>
+    <p>This will create a scheduled event on Discord for the next upcoming Saturday at 9 PM Eastern.</p>
+    <form action="{{ url_for('create_event') }}" method="POST">
+        <input type="submit" value="Create Event">
+    </form>
+    <p><a href="{{ url_for('index') }}">Cancel</a></p>
+{% endblock %}

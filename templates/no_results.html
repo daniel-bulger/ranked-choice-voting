@@ -1,12 +1,10 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>No Results</title>
-</head>
-<body>
-    <h1>There are no votes to count.  Only people who have marked themselves as interested in the next movie night event will have their votes counted.</h1>
-    <p><a href="{{ url_for('index') }}">Back to Home</a></p>
-</body>
-</html>
+{% extends 'base.html' %}
+
+{% block title %}No Results{% endblock %}
+
+{% block content %}
+    <h1>No Votes Counted</h1>
+    <p>There are currently no votes to display.</p>
+    <p>Only users who have marked themselves as interested in the next Discord movie night event will have their votes counted in the results.</p>
+    <p><a href="{{ url_for('index') }}">Back to Voting</a></p>
+{% endblock %}

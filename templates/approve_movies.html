@@ -1,3 +1,6 @@
+{% extends 'base.html' %}
+
+{% block title %}Approve Movies{% endblock %}
 
 {% block content %}
     <h1>Approve Movies</h1>
@@ -12,13 +15,21 @@
             {% for movie in unapproved_movies %}
                 <tr>
                     <td>{{ movie.title }}</td>
-                    <td>
-                        <form action="{{ url_for('approve_movie', movie_id=movie.id) }}" method="POST">
-                            <input type="submit" value="Approve">
+                    <td style="display: flex; gap: 5px;">
+                        <form action="{{ url_for('approve_movie', movie_id=movie.id) }}" method="POST" style="margin: 0;">
+                            <input type="submit" value="Approve" class="btn btn-primary">
+                        </form>
+                        <form action="{{ url_for('reject_movie', movie_id=movie.id) }}" method="POST" style="margin: 0;">
+                            <input type="submit" value="Reject" class="btn btn-secondary">
                         </form>
                     </td>
+                </tr>
+            {% else %}
+                <tr>
+                    <td colspan="2">No movies waiting for approval.</td>
                 </tr>
             {% endfor %}
         </tbody>
     </table>
+    <p><a href="{{ url_for('index') }}">Back</a></p>
 {% endblock %}

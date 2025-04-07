@@ -1,36 +1,36 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.4/jquery.min.js"></script>
-    <title>Aggregated Results</title>
-</head>
-<body>
+{% extends 'base.html' %}
+
+{% block title %}Aggregated Results{% endblock %}
+
+{% block content %}
     <h1>Aggregated Movie Preferences</h1>
-    <h2>Top 3 Movies:</h2>
+    <h2>Top Winning Movies (via IRV):</h2>
     <ol>
         {% for winner in winners %}
             <li>{{ winner }}</li>
         {% endfor %}
     </ol>
-    <p><a href="{{ url_for('index') }}">Back to Home</a></p>
-
-    {% if i_am_interested %}
-    <p>You marked yourself interested and your vote is being counted.</p>
+    
+    {% if current_user.vote_counts %}
+    <p>You marked yourself interested and your vote is being counted in these results.</p>
     {% else %}
     <p>You have not marked yourself as interested in the next movie night and your vote is not being counted.</p>
     {% endif %}
-    <button id="firstButton" disabled>First</button>
-    <button id="prev10Button" disabled>-10</button>
-    <button id="prev5Button" disabled>-5</button>
-    <button id="prevButton" disabled>Previous</button>
-    <button id="nextButton" disabled>Next</button>
-    <button id="next5Button" disabled>+5</button>
-    <button id="next10Button" disabled>+10</button>
-    <button id="lastButton" disabled>Last</button>
-
+    
+    <hr>
+    <h2>Vote Progression by Round:</h2>
+    <div>
+        <button id="firstButton" disabled>First</button>
+        <button id="prev10Button" disabled>-10</button>
+        <button id="prev5Button" disabled>-5</button>
+        <button id="prevButton" disabled>Previous</button>
+        <button id="nextButton" disabled>Next</button>
+        <button id="next5Button" disabled>+5</button>
+        <button id="next10Button" disabled>+10</button>
+        <button id="lastButton" disabled>Last</button>
+    </div>
     <div id="rounds"></div>
+    
     <script>
         let rounds = JSON.parse('{{ votes|tojson|safe }}');
         let userVotes = JSON.parse('{{ my_votes|tojson|safe }}');
@@ -126,5 +126,4 @@
         // Show the first round initially
         showRound(currentRound);
     </script>
-</body>
-</html>
+{% endblock %}

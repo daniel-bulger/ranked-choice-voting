@@ -4,8 +4,10 @@ import logging
 import pytz
 import os
 from dotenv import load_dotenv
+import time
+import random
 
-from flask import Flask, abort, current_app, render_template, request, redirect, url_for, flash
+from flask import Flask, abort, current_app, render_template, request, redirect, url_for, flash, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_login import login_user, logout_user, current_user
@@ -19,8 +21,10 @@ from flask_admin import Admin
 from flask_admin.contrib.sqla import ModelView
 from google.cloud import secretmanager
 from flask_wtf import FlaskForm
-from wtforms import SelectField, SubmitField
-from wtforms.validators import DataRequired
+from wtforms import SelectField, SubmitField, StringField
+from wtforms.fields import DateField
+from wtforms.validators import DataRequired, Length
+from flask_bootstrap import Bootstrap4
 
 from better_instant_runoff import run_instant_runoff_election
 
@@ -36,6 +40,7 @@ def access_secret_version(secret_id, version_id="latest"):
 # GCP project in which to store secrets in Secret Manager.
 
 app = Flask(__name__)
+bootstrap = Bootstrap4(app)
 app.app_context().push()
 if not os.environ.get('SECRET_KEY'):
     os.environ['SECRET_KEY'] = access_secret_version('ranked-choice-flask-app-secret-key')
@@ -90,8 +95,14 @@ class Preference(db.Model):
     user_id = db.Column(db.BigInteger, db.ForeignKey('user.id'), nullable=False)
     movie_id = db.Column(db.BigInteger, db.ForeignKey('movie.id'), nullable=False)
     order = db.Column(db.BigInteger, nullable=False)
+
+class WatchedMovie(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(200), nullable=False)
+    watched_date = db.Column(db.Date, nullable=False)
  
-db.create_all()
+# db.create_all() # Can be uncommented now if desired, though migrations handle it.
+db.create_all() # Or simply remove the comment
 
 def requires_authorization(view):
     @functools.wraps(view)
@@ -164,6 +175,7 @@ admin.add_view(UserModelView(Movie, db.session))
 class PreferenceModelView(UserModelView):
     column_list = ['id', 'user_id', 'movie_id', 'order']
 admin.add_view(PreferenceModelView(Preference, db.session))
+admin.add_view(UserModelView(WatchedMovie, db.session))
 
 @app.route('/approve_movies')
 @requires_authorization
@@ -171,7 +183,7 @@ def approve_movies():
     if not get_current_user().is_admin:
         abort(403)  # Forbidden
     unapproved_movies = Movie.query.filter_by(is_approved=False).all()
-    return render_template('approve_movies.html', unapproved_movies=unapproved_movies)
+    return render_template('approve_movies.html', unapproved_movies=unapproved_movies, current_user=get_current_user())
 
 
 @app.route('/approve_movie/<int:movie_id>', methods=['POST'])
@@ -185,23 +197,46 @@ def approve_movie(movie_id):
         db.session.commit()
     return redirect(url_for('approve_movies'))
 
-
-@app.route('/add_movie', methods=['POST'])
+@app.route('/reject_movie/<int:movie_id>', methods=['POST'])
 @requires_authorization
-def add_movie():
-    title = request.form['title']
-    movie = Movie.query.filter_by(title=title).first()
+def reject_movie(movie_id):
+    if not get_current_user().is_admin:
+        abort(403)  # Forbidden
+    movie = Movie.query.get(movie_id)
     if movie:
-        flash('Movie already exists.', category='error')
-    elif len(title) < 1:
-        flash('Movie title is too short.', category='error')
-    else:
-        new_movie = Movie(title=title, is_approved=False)
-        db.session.add(new_movie)
+        # Check if it has any votes before deleting? (Optional safety)
+        # Preference.query.filter_by(movie_id=movie_id).delete()
+        db.session.delete(movie)
         db.session.commit()
-        flash('Movie proposed for approval.', category='success')
-    return redirect(url_for('index'))
+        flash(f'Movie proposal "{movie.title}" rejected and removed.', 'success')
+    else:
+        flash(f'Movie with ID {movie_id} not found.', 'error')
+    return redirect(url_for('approve_movies'))
 
+# New route for requesting movies
+class RequestMovieForm(FlaskForm):
+    title = StringField('Movie Title', validators=[DataRequired(), Length(min=1, max=200)])
+    submit = SubmitField('Request Movie')
+
+@app.route('/request_movie', methods=['GET', 'POST'])
+@requires_authorization
+def request_movie():
+    form = RequestMovieForm()
+    if form.validate_on_submit():
+        title = form.title.data
+        # Check if movie already exists (approved or not)
+        existing_movie = Movie.query.filter(Movie.title.ilike(title)).first()
+        if existing_movie:
+            flash(f'Movie "{existing_movie.title}" already exists in the list (approved or pending).', category='warning')
+        else:
+            new_movie = Movie(title=title, is_approved=False)
+            db.session.add(new_movie)
+            db.session.commit()
+            flash(f'Movie "{title}" proposed for approval.', category='success')
+            return redirect(url_for('index')) # Redirect to index after successful request
+        # If movie exists or other validation error, re-render the form
+    # Pass current_user for the base template
+    return render_template('request_movie.html', form=form, current_user=get_current_user())
 
 @app.route('/', methods=['GET'])
 @requires_authorization
@@ -235,36 +270,61 @@ def index():
             if movie.id == movie_id:
                 ranked_movies.append(movie)
 
-    return render_template('index.html', movies=sorted_movies, unordered_movies = ranked_movies + unsorted_movies,username=get_current_user().username)
+    return render_template('index.html', movies=sorted_movies, unordered_movies = ranked_movies + unsorted_movies, current_user=get_current_user())
 
-@app.route('/update_preferences', methods=['POST'])
+@app.route('/autosave_preferences', methods=['POST'])
 @requires_authorization
-def update_preferences():
-    movie_order = request.form.getlist('movie[]')
-    unordered_movies = request.form.getlist('unordered_movie[]')
-    print(movie_order)
+def autosave_preferences():
+    user = get_current_user()
+    if not user:
+        return jsonify({'status': 'error', 'message': 'User not found'}), 401
 
-    for index, movie_id in enumerate(movie_order):
-        preference = Preference.query.filter_by(user_id=get_current_user().id, movie_id=movie_id).first()
-        
-        if preference:
-            preference.order = index
-            db.session.add(preference)  # Add the updated preference object to the session
-        else:
-            new_preference = Preference(user_id=get_current_user().id, movie_id=movie_id, order=index)
-            db.session.add(new_preference)
+    data = request.get_json()
+    if not data or 'movie_ids' not in data: # Expecting 'movie_ids' key
+        return jsonify({'status': 'error', 'message': 'Missing or invalid data'}), 400
 
-    # Delete preferences for unordered movies
-    for unordered_movie_id in unordered_movies:
-        unordered_movie = Movie.query.get(unordered_movie_id)
-        if unordered_movie:
-            preference = Preference.query.filter_by(user_id=get_current_user().id, movie_id=unordered_movie_id).first()
-            if preference:
-                db.session.delete(preference)
+    submitted_movie_ids = set(int(id_str) for id_str in data['movie_ids']) # Use a set for faster lookups
+    submitted_movie_id_list = [int(id_str) for id_str in data['movie_ids']] # Keep ordered list
+    
+    try:
+        # Fetch ALL existing preferences for the user
+        existing_prefs = Preference.query.filter_by(user_id=user.id).all()
+        existing_prefs_map = {pref.movie_id: pref for pref in existing_prefs}
+        existing_movie_ids = set(existing_prefs_map.keys())
 
-    db.session.commit()
-    return redirect('/')
+        # --- Update and Create --- 
+        for index, movie_id in enumerate(submitted_movie_id_list):
+            if movie_id in existing_prefs_map:
+                # Update existing preference order if changed
+                preference = existing_prefs_map[movie_id]
+                if preference.order != index:
+                    preference.order = index
+                    db.session.add(preference) 
+            else:
+                # Create new preference if it was added (should exist in Movie table)
+                movie_exists = Movie.query.get(movie_id)
+                if movie_exists:
+                    new_preference = Preference(user_id=user.id, movie_id=movie_id, order=index)
+                    print(f"Autosave: Creating new pref for movie {movie_id} at index {index}")
+                    db.session.add(new_preference)
+                else:
+                     print(f"Autosave: Movie ID {movie_id} not found, skipping preference creation.")
 
+        # --- Delete Removed Preferences --- 
+        ids_to_delete = existing_movie_ids - submitted_movie_ids
+        if ids_to_delete:
+            print(f"Autosave: Deleting preferences for movie IDs: {ids_to_delete}")
+            Preference.query.filter(
+                Preference.user_id == user.id,
+                Preference.movie_id.in_(ids_to_delete)
+            ).delete(synchronize_session=False) # Use False for bulk delete
+
+        db.session.commit()
+        return jsonify({'status': 'success', 'message': 'Preferences saved'})
+    except Exception as e:
+        db.session.rollback() # Rollback on error
+        print(f"Error during autosave: {e}") # Log the error server-side
+        return jsonify({'status': 'error', 'message': 'Server error during save'}), 500
 
 def get_instant_runoff_winner_ids(preferences, current_user_id = 0):
     # If there are no preferences, return an empty result immediately
@@ -340,55 +400,119 @@ def find_condorcet_winners(preferences):
 
 
 def get_interested_voters():
-    try:
-        # Define the URL for the API call
-        get_events_url = f"https://discord.com/api/guilds/226530292393836544/scheduled-events"
-        # Define the headers for the API call
-        headers = {
-            'Authorization': f'Bot {os.getenv("DISCORD_BOT_TOKEN")}',
-        }
-        # Make the API call
-        events_response = requests.get(get_events_url, headers=headers)
-        next_movie_night = None
-        for event in events_response.json():
-            if "movie" in event['name'] or "Movie" in event['name'] or "MOVIE" in event['name']:
-                if not(next_movie_night) or event['scheduled_start_time'] < next_movie_night['scheduled_start_time']:
-                    next_movie_night = event
-        if next_movie_night is None:
-            print("No next movie night :(")
-            return []
-        get_users_url = f"https://discord.com/api/guilds/226530292393836544/scheduled-events/{next_movie_night['id']}/users"
-        get_users_response = requests.get(get_users_url,headers=headers).json()
-        return [user['user']['id'] for user in get_users_response]
-    except Exception as e:
-        print(e)
-        return None
+    max_retries = 3
+    initial_delay = 1  # seconds
+    
+    for attempt in range(max_retries):
+        try:
+            # Define the URL for the API call
+            get_events_url = f"https://discord.com/api/guilds/226530292393836544/scheduled-events"
+            # Define the headers for the API call
+            headers = {
+                'Authorization': f'Bot {os.getenv("DISCORD_BOT_TOKEN")}',
+            }
+            # Make the API call
+            events_response = requests.get(get_events_url, headers=headers, timeout=10) # Added timeout
+            events_response.raise_for_status() # Raise HTTPError for bad responses (4xx or 5xx)
+            
+            next_movie_night = None
+            # Check if response is valid JSON and is a list
+            try:
+                events_data = events_response.json()
+                if not isinstance(events_data, list):
+                    print(f"Unexpected Discord events response format: {events_data}")
+                    events_data = [] # Treat as empty if not a list
+            except requests.exceptions.JSONDecodeError:
+                print(f"Failed to decode Discord events JSON response: {events_response.text}")
+                events_data = []
+
+            for event in events_data:
+                # Basic check for dictionary structure and necessary keys
+                if isinstance(event, dict) and 'name' in event and 'scheduled_start_time' in event:
+                    if "movie" in event['name'].lower(): # Check lower case
+                        if not next_movie_night or event['scheduled_start_time'] < next_movie_night['scheduled_start_time']:
+                            next_movie_night = event
+                else:
+                    print(f"Skipping malformed event data: {event}")
+
+            if next_movie_night is None:
+                print("No relevant 'movie' event found in Discord scheduled events.")
+                return [] # Return empty list if no event found, not None
+            
+            get_users_url = f"https://discord.com/api/guilds/226530292393836544/scheduled-events/{next_movie_night['id']}/users"
+            get_users_response = requests.get(get_users_url, headers=headers, timeout=10) # Added timeout
+            get_users_response.raise_for_status()
+            
+            # Check if response is valid JSON and is a list
+            try:
+                users_data = get_users_response.json()
+                if not isinstance(users_data, list):
+                    print(f"Unexpected Discord users response format: {users_data}")
+                    return [] # Return empty list if format is wrong
+            except requests.exceptions.JSONDecodeError:
+                 print(f"Failed to decode Discord users JSON response: {get_users_response.text}")
+                 return [] # Return empty list on decode error
+
+            # Extract IDs, checking structure
+            interested_ids = []
+            for user_entry in users_data:
+                if isinstance(user_entry, dict) and 'user' in user_entry and isinstance(user_entry['user'], dict) and 'id' in user_entry['user']:
+                    interested_ids.append(user_entry['user']['id'])
+                else:
+                    print(f"Skipping malformed user data: {user_entry}")
+            
+            return interested_ids # Success!
+            
+        except requests.exceptions.RequestException as e:
+            print(f"Attempt {attempt + 1} failed: Error during Discord API request: {e}")
+            if attempt == max_retries - 1:
+                print("Max retries reached. Failing operation.")
+                return None # Return None only after all retries fail
+            
+            # Calculate delay with exponential backoff and jitter
+            delay = (initial_delay * (2 ** attempt)) + random.uniform(0, 1)
+            print(f"Retrying in {delay:.2f} seconds...")
+            time.sleep(delay)
+            
+    return None # Should not be reached if loop completes, but acts as final fallback
 
 @app.route('/results')
 @requires_authorization
 def results():
-    # Update whose vote should count.  This involves Discord API calls.
-    interested_ids = [int(id) for id in get_interested_voters()]
-    print(interested_ids)
-    if interested_ids is None:
-        print("No upcoming movie night :(.  Fall back to counting all votes.")
+    # Update whose vote should count. This involves Discord API calls.
+    raw_interested_ids = get_interested_voters()
+    
+    if raw_interested_ids is None:
+        # Error fetching from Discord, fall back to counting all votes
+        print("Error fetching interested voters from Discord. Counting all votes as a fallback.")
         for user in User.query.all():
             user.vote_counts = True
+        interested_ids = None # Explicitly set to None for the later check (though not strictly necessary now)
     else:
-        # Mark all users who are interested as having their vote count for the next movie night.
+        # Successfully fetched IDs, process them
+        interested_ids = [int(id) for id in raw_interested_ids]
+        print(f"Interested Discord IDs: {interested_ids}")
+        # Mark users based on fetched IDs
         all_users = User.query.all()            
         for user in all_users:
             if user.discord_id in interested_ids:
                 user.vote_counts = True
-                print("user is interested")
+                print(f"User {user.username} ({user.discord_id}) is interested.")
             else:
                 user.vote_counts = False
+                
+    # This check might be redundant now but doesn't hurt
+    # if interested_ids is None: 
+    #     print("No upcoming movie night or error fetching. Counting all votes.")
+    #     for user in User.query.all():
+    #         user.vote_counts = True
+            
     db.session.commit()
 
-    # Only count the preferences for voters who are attending the next movie night.
+    # Only count the preferences for voters whose vote_counts is True
     preferences = Preference.query.join(User).filter(User.vote_counts==True).all()
     if not preferences:
-        return render_template('no_results.html')
+        return render_template('no_results.html', current_user=get_current_user())
     # Something seems wrong with condorcet so commenting this out for now.
     # condorcet_winners = find_condorcet_winners(preferences)
     # if condorcet_winners:
@@ -401,7 +525,7 @@ def results():
     print(winners)
     winners = winners[:5]
 
-    return render_template('results.html', winners=winners, votes=votes, my_votes=my_votes,i_am_interested=get_current_user().vote_counts)
+    return render_template('results.html', winners=winners, votes=votes, my_votes=my_votes, current_user=get_current_user())
 
 def create_movie_event():
     # Define the event details
@@ -453,22 +577,37 @@ def clear_votes():
 
     class ClearVotesForm(FlaskForm):
         movie = SelectField('Movie', choices=[(m.id, m.title) for m in Movie.query.all()], validators=[DataRequired()])
-        submit = SubmitField('Clear Votes')
+        watched_date = DateField('Watched Date', format='%Y-%m-%d', validators=[DataRequired()], default=datetime.utcnow)
+        submit = SubmitField('Mark as Watched')
     form = ClearVotesForm()
 
     # Handle the POST request with form data
     if form.validate_on_submit():
         movie_id = form.movie.data
+        watched_date = form.watched_date.data
         movie = Movie.query.get(movie_id)
 
-        # Delete all votes related to this movie
-        Preference.query.filter_by(movie_id=movie_id).delete()
-        db.session.commit()
-        flash(f"All votes for {movie.title} have been removed.", "success")
+        if movie:
+            # Create WatchedMovie record
+            watched_movie = WatchedMovie(title=movie.title, watched_date=watched_date)
+            db.session.add(watched_movie)
+
+            # Delete all votes related to this movie
+            Preference.query.filter_by(movie_id=movie_id).delete()
+
+            # Delete the movie itself
+            db.session.delete(movie)
+
+            # Commit all changes
+            db.session.commit()
+            flash(f'"{movie.title}" marked as watched on {watched_date.strftime("%Y-%m-%d")} and removed from voting list.', "success")
+        else:
+            flash(f'Movie with ID {movie_id} not found.', 'error')
+            
         return redirect(url_for('index'))
 
     # Handle the GET request to display the form
-    return render_template('clear_votes.html', form=form)
+    return render_template('clear_votes.html', form=form, current_user=get_current_user())
 
 @app.route('/create-event', methods=['GET', 'POST'])
 @requires_authorization
@@ -480,7 +619,13 @@ def create_event():
         create_movie_event()
         return 'Event created successfully'
     else:
-        return render_template('create_event.html')
+        return render_template('create_event.html', current_user=get_current_user())
+
+@app.route('/history')
+@requires_authorization
+def history():
+    watched_movies = WatchedMovie.query.order_by(WatchedMovie.watched_date.desc()).all()
+    return render_template('history.html', watched_movies=watched_movies, current_user=get_current_user())
 
 if __name__ == "__main__":
     print("running")

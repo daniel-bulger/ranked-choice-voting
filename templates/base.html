@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Ranked Choice Voting{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.14.0/Sortable.min.js"></script>
+</head>
+<body>
+    <nav class="main-nav">
+        <ul>
+            <li><a href="{{ url_for('index') }}">Vote</a></li>
+            <li><a href="{{ url_for('request_movie') }}">Request Movie</a></li>
+            <li><a href="{{ url_for('results') }}">Results</a></li>
+            <li><a href="{{ url_for('history') }}">History</a></li>
+        </ul>
+        <ul class="user-nav">
+            {% if current_user.is_admin %}
+            <li class="dropdown">
+                <a href="#" class="dropbtn">Admin</a>
+                <div class="dropdown-content">
+                    <a href="{{ url_for('approve_movies') }}">Approve Movies</a>
+                    <a href="{{ url_for('clear_votes') }}">Mark Watched</a>
+                    <a href="{{ url_for('create_event') }}">Create Event</a>
+                    <a href="{{ url_for('admin.index') }}">DB Admin</a>
+                </div>
+            </li>
+            {% endif %}
+            <li><a href="{{ url_for('logout') }}">Logout ({{ current_user.username }})</a></li>
+        </ul>
+    </nav>
+    {# <hr> #} {# Removing the hr as the navbar styling will provide separation #}
+
+    {# Flash messages #}
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <ul>
+            {% for category, message in messages %}
+                <li class="flash {{ category }}">{{ message }}</li>
+            {% endfor %}
+            </ul>
+        {% endif %}
+    {% endwith %}
+    {# Main content block #}
+    <main class="container">
+        {% block content %}{% endblock %}
+    </main>
+
+</body>
+</html> 

@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% block title %}Watched History{% endblock %}
+
+{% block content %}
+    <h1>Watched Movie History</h1>
+
+    {% if watched_movies %}
+        <ul>
+            {% for movie in watched_movies %}
+                <li>{{ movie.watched_date.strftime('%Y-%m-%d') }} - {{ movie.title }}</li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p>No movies have been marked as watched yet.</p>
+    {% endif %}
+
+    <p><a href="{{ url_for('index') }}">Back to Voting</a></p>
+{% endblock %} 

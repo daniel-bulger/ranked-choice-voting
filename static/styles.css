@@ -1,108 +1,376 @@
+:root {
+    --background-color: #1a1a1a;
+    --text-color: #e0e0e0;
+    --primary-color: #007bff;
+    --primary-hover-color: #0056b3;
+    --secondary-color: #6c757d;
+    --secondary-hover-color: #5a6268;
+    --card-background-color: #2c2c2c;
+    --border-color: #444;
+    --input-background-color: #333;
+    --max-width: 800px;
+    --spacing-unit: 1rem;
+}
+
 body {
-    font-family: Arial, sans-serif;
-    background-color: #1a1a1a;
-    color: #f0f0f0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background-color: var(--background-color);
+    color: var(--text-color);
     margin: 0;
     padding: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center; /* Center content horizontally */
+    min-height: 100vh;
 }
 
 .container {
-    width: 80%;
-    margin: 0 auto;
-    padding: 2rem 0;
+    width: 90%;
+    max-width: var(--max-width);
+    margin: var(--spacing-unit) auto;
+    padding: var(--spacing-unit);
 }
 
-h1, h2 {
+nav {
+    width: 100%;
+    max-width: var(--max-width);
+    padding: var(--spacing-unit) 0;
+    text-align: center; /* Center nav links */
+    margin-bottom: var(--spacing-unit);
+}
+
+nav a {
+    color: var(--primary-color);
+    text-decoration: none;
+    margin: 0 calc(var(--spacing-unit) / 2);
+    padding: calc(var(--spacing-unit) / 4) calc(var(--spacing-unit) / 2);
+    border-radius: 4px;
+    transition: background-color 0.2s ease;
+}
+
+nav a:hover {
+    background-color: var(--input-background-color);
+    text-decoration: none;
+}
+
+main {
+    width: 100%;
+    max-width: var(--max-width); /* Ensure main content respects max width */
+}
+
+h1, h2, h3 {
     text-align: center;
-    margin-bottom: 1.5rem;
+    margin-bottom: var(--spacing-unit);
+    color: var(--text-color);
+}
+
+h1 {
+    margin-top: 0;
 }
 
 form {
+    background-color: var(--card-background-color);
+    padding: calc(var(--spacing-unit) * 1.5);
+    border-radius: 8px;
+    margin-bottom: calc(var(--spacing-unit) * 1.5);
+    border: 1px solid var(--border-color);
     display: flex;
     flex-direction: column;
-    align-items: center;
-    margin-bottom: 2rem;
+    align-items: stretch; /* Make form elements stretch */
 }
 
-input[type="text"] {
-    background-color: #333;
-    border: 1px solid #444;
-    color: #f0f0f0;
-    padding: 0.5rem;
-    width: 100%;
-    max-width: 600px;
-    margin-bottom: 1rem;
+form div {
+    margin-bottom: var(--spacing-unit);
 }
 
-.movie_list, #unordered_movie_list {
-    display: flex;
-    flex-direction: column;
-    width: 100%;
-    max-width: 600px;
+label {
+    display: block;
+    margin-bottom: calc(var(--spacing-unit) / 4);
+    font-weight: bold;
+}
+
+input[type="text"],
+input[type="date"],
+select {
+    background-color: var(--input-background-color);
+    border: 1px solid var(--border-color);
+    color: var(--text-color);
+    padding: calc(var(--spacing-unit) * 0.75);
+    width: 100%; /* Make inputs fill container */
+    border-radius: 4px;
+    box-sizing: border-box; /* Include padding and border in width */
+    margin-bottom: var(--spacing-unit);
+}
+
+/* Lists (Voting, History, etc.) */
+ul,
+ol {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 var(--spacing-unit) 0;
 }
 
 li {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0.5rem 1rem;
-    background-color: #333;
-    border: 1px solid #444;
-    margin-bottom: 0.5rem;
+    padding: var(--spacing-unit);
+    background-color: var(--card-background-color);
+    border: 1px solid var(--border-color);
+    margin-bottom: calc(var(--spacing-unit) / 2);
+    border-radius: 4px;
 }
 
-.btn {
-    padding: 0.25rem 0.5rem;
-    font-size: 0.875rem;
-    border-radius: 0.2rem;
+/* Style for sortable list items */
+#movie_list li {
+    cursor: grab;
+}
+
+/* Buttons */
+.btn,
+input[type="submit"],
+button {
+    display: inline-block;
+    padding: calc(var(--spacing-unit) * 0.75) calc(var(--spacing-unit) * 1.5);
+    font-size: 1rem;
+    border-radius: 4px;
     cursor: pointer;
     border: none;
+    text-align: center;
+    text-decoration: none;
+    transition: background-color 0.2s ease, transform 0.1s ease;
+    margin: calc(var(--spacing-unit) / 4);
+}
+
+.btn:active,
+input[type="submit"]:active,
+button:active {
+    transform: scale(0.98);
+}
+
+input[type="submit"],
+.btn-primary {
+    background-color: var(--primary-color);
+    color: #fff;
+}
+
+input[type="submit"]:hover,
+.btn-primary:hover {
+    background-color: var(--primary-hover-color);
 }
 
 .btn-secondary {
-    background-color: #6c757d;
+    background-color: var(--secondary-color);
     color: #fff;
 }
 
 .btn-secondary:hover {
-    background-color: #5a6268;
+    background-color: var(--secondary-hover-color);
 }
 
-.btn-primary {
-    background-color: #007bff;
-    color: #fff;
+/* Specific button adjustments within list items */
+li button {
+    padding: calc(var(--spacing-unit) / 2) var(--spacing-unit);
+    font-size: 0.9rem;
 }
 
-.btn-primary:hover {
-    background-color: #0069d9;
-}
-
-input[type="submit"] {
-    background-color: #2196F3;
-    border: none;
-    color: white;
-    padding: 0.5rem 1rem;
-    text-align: center;
-    text-decoration: none;
-    display: inline-block;
-    font-size: 16px;
-    margin: 0.5rem 0;
-    cursor: pointer;
-}
-
-input[type="submit"]:hover {
-    background-color: #0b7dda;
-}
-
+/* Paragraphs and Links */
 p {
-    text-align: center;
+    text-align: center; /* Center paragraphs by default */
+    line-height: 1.6;
+    margin-bottom: var(--spacing-unit);
 }
 
 a {
-    color: #2196F3;
+    color: var(--primary-color);
     text-decoration: none;
 }
 
 a:hover {
     text-decoration: underline;
+}
+
+/* Flash Messages */
+.flash {
+    padding: var(--spacing-unit);
+    margin-bottom: var(--spacing-unit);
+    border-radius: 4px;
+    text-align: center;
+    width: 100%;
+    max-width: var(--max-width);
+    box-sizing: border-box;
+}
+
+.flash.success {
+    background-color: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.flash.error {
+    background-color: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+/* Admin table styles */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: var(--spacing-unit);
+}
+
+th,
+td {
+    border: 1px solid var(--border-color);
+    padding: calc(var(--spacing-unit) * 0.75);
+    text-align: left;
+}
+
+th {
+    background-color: var(--card-background-color);
+}
+
+tr:nth-child(even) {
+    background-color: var(--input-background-color);
+}
+
+/* Ensure form buttons are centered if form align-items is changed */
+form input[type="submit"] {
+    align-self: center; /* Center submit button within form */
+    min-width: 150px;
+}
+
+/* Adjustments for specific views if needed */
+#rounds h2 {
+    text-align: left; /* Keep round headers left-aligned */
+}
+#rounds ul {
+    margin-left: var(--spacing-unit); /* Indent round details */
+}
+#rounds li {
+    background-color: transparent;
+    border: none;
+    padding: calc(var(--spacing-unit)/4) 0;
+    justify-content: flex-start; /* Align votes left */
+}
+
+/* Style the horizontal rule */
+hr {
+    border: none; /* Remove default border */
+    height: 1px; /* Set height */
+    background-color: var(--border-color); /* Use border color from variables */
+    margin-top: var(--spacing-unit); /* Add space above */
+    margin-bottom: calc(var(--spacing-unit) * 1.5); /* Add more space below */
+    width: 100%; /* Ensure it spans the container */
+    max-width: var(--max-width); /* Keep within content width */
+}
+
+/* Navbar Styles */
+.main-nav {
+    width: 100%;
+    background-color: var(--card-background-color);
+    border-bottom: 1px solid var(--border-color);
+    padding: 0 calc(var(--spacing-unit) * 2); /* Padding on the sides */
+    display: flex;
+    justify-content: space-between; /* Push main links and user links apart */
+    align-items: center;
+    box-sizing: border-box;
+    margin-bottom: calc(var(--spacing-unit) * 1.5); /* Space below navbar */
+}
+
+.main-nav ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    align-items: center;
+}
+
+.main-nav li {
+    margin: 0;
+    padding: 0;
+    background-color: transparent;
+    border: none;
+}
+
+.main-nav a {
+    display: block;
+    padding: var(--spacing-unit) calc(var(--spacing-unit) * 0.75);
+    color: var(--text-color);
+    text-decoration: none;
+    border-radius: 0; /* Remove individual link radius */
+    transition: background-color 0.2s ease, color 0.2s ease;
+    font-weight: 500;
+}
+
+.main-nav a:hover,
+.main-nav a:focus {
+    background-color: var(--input-background-color);
+    color: #fff; /* Brighter text on hover */
+    text-decoration: none;
+}
+
+.user-nav {
+    /* Styles specific to user/admin links if needed */
+}
+
+.admin-link-group a {
+    margin-left: calc(var(--spacing-unit) * 0.5); /* Space out admin links */
+    font-size: 0.9em;
+    color: var(--secondary-color); /* Subtler color for admin links */
+}
+
+.admin-link-group a:hover {
+    color: var(--text-color);
+}
+
+/* Dropdown Styles (within Navbar) */
+.dropdown {
+    position: relative; /* Needed for absolute positioning of dropdown content */
+    display: inline-block; /* Align with other nav items */
+}
+
+.dropbtn {
+    /* Inherits general .main-nav a styles */
+    /* Add any specific styling for the button itself if needed */
+}
+
+.dropdown-content {
+    display: none; /* Hidden by default */
+    position: absolute;
+    background-color: var(--card-background-color);
+    min-width: 160px;
+    box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+    z-index: 1; /* Ensure it appears above other content */
+    border: 1px solid var(--border-color);
+    border-top: none; /* Avoid double border with nav */
+    right: 0; /* Align dropdown to the right edge of the button */
+}
+
+.dropdown-content a {
+    color: var(--text-color);
+    padding: 12px 16px;
+    text-decoration: none;
+    display: block;
+    white-space: nowrap; /* Prevent wrapping */
+    font-weight: normal; /* Override bold from nav a */
+    font-size: 0.95em;
+}
+
+.dropdown-content a:hover,
+.dropdown-content a:focus {
+    background-color: var(--input-background-color);
+    color: #fff;
+}
+
+/* Show the dropdown menu on hover */
+.dropdown:hover .dropdown-content {
+    display: block;
+}
+
+/* Optional: Style the dropdown button differently on hover when dropdown is open */
+.dropdown:hover .dropbtn {
+    background-color: var(--input-background-color);
+    color: #fff;
 }

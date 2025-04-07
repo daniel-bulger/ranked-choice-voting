@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+
+{% block title %}Request a Movie{% endblock %}
+
+{% block content %}
+    <h1>Request a Movie</h1>
+    <p>Submit a movie title below to add it to the list for approval.</p>
+    
+    <form method="POST" action="{{ url_for('request_movie') }}">
+        {{ form.hidden_tag() }}
+        
+        <div>
+            {{ form.title.label }}<br>
+            {{ form.title(class='form-control', size=50) }}
+            {% if form.title.errors %}
+                <ul class="errors">
+                {% for error in form.title.errors %}
+                    <li style="color: red;">{{ error }}</li>
+                {% endfor %}
+                </ul>
+            {% endif %}
+        </div>
+
+        <div>
+            {{ form.submit(class='btn btn-primary') }}
+        </div>
+    </form>
+    
+    <p><a href="{{ url_for('index') }}">Back to Voting</a></p>
+{% endblock %} 

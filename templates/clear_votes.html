@@ -1,11 +1,41 @@
-<h1>Clear Votes</h1>
-<form method="POST">
-    {{ form.hidden_tag() }}
-    <div class="form-group">
-        {{ form.movie.label(class="form-label") }}
-        {{ form.movie(class="form-select") }}
-    </div>
-    <div class="form-group">
-        {{ form.submit(class="btn btn-primary") }}
-    </div>
-</form>
+{% extends 'base.html' %}
+
+{% block title %}Mark Movie as Watched{% endblock %}
+
+{% block content %}
+    <h1>Mark Movie as Watched</h1>
+    <form method="POST" action="{{ url_for('clear_votes') }}">
+        {{ form.hidden_tag() }}
+        
+        <div>
+            {{ form.movie.label }}<br>
+            {{ form.movie(class='form-control') }}
+            {% if form.movie.errors %}
+                <ul class="errors">
+                {% for error in form.movie.errors %}
+                    <li style="color: red;">{{ error }}</li>
+                {% endfor %}
+                </ul>
+            {% endif %}
+        </div>
+
+        <div>
+            {{ form.watched_date.label }}<br>
+            {{ form.watched_date(class='form-control') }}
+            {% if form.watched_date.errors %}
+                <ul class="errors">
+                {% for error in form.watched_date.errors %}
+                    <li style="color: red;">{{ error }}</li>
+                {% endfor %}
+                </ul>
+            {% endif %}
+        </div>
+
+        <div>
+            {{ form.submit(class='btn btn-primary') }}
+        </div>
+    </form>
+    <p><a href="{{ url_for('index') }}">Cancel</a></p>
+{% endblock %}
+
+{# Removed original content which likely didn't use blocks #}
