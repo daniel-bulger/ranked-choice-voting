@@ -351,7 +351,7 @@ def get_instant_runoff_winner_ids(preferences, current_user_id = 0):
     return run_instant_runoff_election(user_preference_list)
 
 def get_movie_name(id, id_to_name):
-    return id_to_name.get(id,"Unknown movie with id {0}".format(x))
+    return id_to_name.get(id,"Unknown movie with id {0}".format(id))
 
 def get_instant_runoff_winners(preferences,current_user_id = 0):
     election_result = get_instant_runoff_winner_ids(preferences,current_user_id)
